@@ -1,5 +1,5 @@
-![Sales Analytics](./Picture/baneer%20vertical.png)
-# Proyecto SQL: Análisis de Car Sales - Ticket promedio, margen y tasa de descuento
+![E-Commerce Sales Analytics Dataset](./Picture/baneer%20vertical.png)
+# Proyecto SQL: Análisis de E-Commerce Sales Analytics Dataset - Ticket promedio, margen y tasa de conversión
 
 ## Resumen (Overview)
 _El personal de recursos humanos de **GreatPlaceToWork** desea mejorar el desempeño, aumentar la retención y mejorar la satisfacción laboral general. Sin embargo, no cuentan con una visión clara de los datos pertinentes de los empleados. Mi objetivo es utilizar **SQL** dentro de **SQL Server Management Studio**, analizando sus datos para proporcionar recomendaciones al departamento de RR.HH. que faciliten mejoras exitosas._
@@ -8,18 +8,6 @@ _El personal de recursos humanos de **GreatPlaceToWork** desea mejorar el desemp
 <p align="center">
   <a href="https://www.linkedin.com/in/jhon-velasque/">
     <img src="https://img.shields.io/badge/LinkedIn-0077B5?style=flat-square&logo=linkedin&logoColor=white" />
-  </a>
-  <a href="https://www.youtube.com/@HOLAMeDicenJHON">
-    <img src="https://img.shields.io/badge/YouTube-FF0000?style=flat-square&logo=youtube&logoColor=white" />
-  </a>
-  <a href="https://www.instagram.com/hola_me_dicen_jhon/">
-    <img src="https://img.shields.io/badge/Instagram-E4405F?style=flat-square&logo=instagram&logoColor=white" />
-  </a>
-  <a href="https://www.tiktok.com/@medicenjhon0?is_from_webapp=1&sender_device=pc">
-    <img src="https://img.shields.io/badge/TikTok-000000?style=flat-square&logo=tiktok&logoColor=white" />
-  </a>
-  <a href="https://wa.link/kzegye">
-    <img src="https://img.shields.io/badge/WhatsApp-25D366?style=flat-square&logo=whatsapp&logoColor=white" />
   </a>
 </p>
 
@@ -32,7 +20,7 @@ _El personal de recursos humanos de **GreatPlaceToWork** desea mejorar el desemp
 
 ## Sobre los Datos
 
-Los datos originales, junto con una explicación de cada columna, se pueden encontrar [aquí](https://www.kaggle.com/datasets/mahmoudemadabdallah/hr-analytics-employee-attrition-and-performance/data?select=Employee.csv).
+Los datos originales, junto con una explicación de cada columna, se pueden encontrar [LINK](https://www.kaggle.com/datasets/datascikhan/e-commerce-sales-and-customer-analytics/data).
 
 El conjunto de datos incluye cinco tablas que capturan evaluaciones de desempeño, datos demográficos de los empleados, niveles de satisfacción y calificaciones, distribuidos en más de 8,100 registros y 40 columnas.
 
