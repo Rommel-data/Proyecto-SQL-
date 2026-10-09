@@ -59,7 +59,7 @@ En este análisis ayudo al equipo comercial a responder lo siguiente:
 
 ## Limpieza de Datos
 
-Revisé las cuatro tablas con cinco controles de calidad. Primero detecté los problemas, después corregí los que lo requerían creando tablas limpias (sin modificar las originales) y, por último, definí reglas para los hallazgos que no se corrigen pero cambian cómo se calcula. El código completo está en [`Scripts/02_limpieza.sql`](./Scripts/02_limpieza.sql).
+Revisé las cuatro tablas con cinco controles de calidad.Como se muestra en la sigueinte tabla. El código completo está en [`Scripts/02_limpieza.sql`](./Scripts/02_limpieza.sql).
  
 | # | Control | Tabla | Hallazgo | Acción |
 |---|---|---|---|---|
