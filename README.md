@@ -40,26 +40,21 @@ erDiagram
 
 ## Tareas
 
-**Hipótesis de partida:**
-- **H1 · Estacionalidad:** las ventas suben hacia fin de año y caen a inicios de año.
-- **H2 · Concentración:** pocas categorías concentran la mayor parte de las ventas, pero no necesariamente del margen.
-- **H3 · Recurrencia:** los clientes que vuelven a comprar gastan más que los clientes nuevos.
-
 En este análisis ayudo al equipo comercial a responder lo siguiente:
-
+ 
 1. **Ventas en el tiempo:** ¿Cómo evolucionan las ventas, los pedidos y el ticket promedio cada mes?
-2. **Categorías:** ¿Qué categorías venden más y cuáles dejan más margen?
-3. **Pedidos perdidos:** ¿Qué porcentaje de pedidos se cancela o se devuelve?
-4. **Regiones:** ¿Cómo se comparan Lima y provincia en ventas, ticket y costo de envío?
+2. **Crecimiento interanual:** ¿Cómo varían las ventas contra el mismo mes del año anterior y qué mes rompe la tendencia?
+3. **Categorías:** ¿Qué categorías venden más y cuáles dejan más margen?
+4. **Productos top:** ¿Cuáles son los 3 productos más vendidos de cada categoría?
 5. **Clientes:** ¿Cuánto venden los clientes nuevos frente a los recurrentes, y de qué canal llegan?
-6. **Rentabilidad por pedido:** ¿Qué rangos de monto de pedido dejan más margen después del envío?
-7. **Productos top:** ¿Cuáles son los 3 productos más vendidos de cada categoría?
-8. **Crecimiento:** ¿Cómo varían las ventas mes a mes y año contra año, y qué mes tuvo la peor caída?
+6. **Pedidos perdidos:** ¿Qué porcentaje de pedidos se cancela o se devuelve?
+7. **Regiones:** ¿Cómo se comparan Lima y provincia en ventas, ticket y costo de envío?
+8. **Rentabilidad por pedido:** ¿Qué rangos de monto de pedido dejan más margen después del envío?
 
 
 ## Limpieza de Datos
 
-Revisé las cuatro tablas con cinco controles de calidad.Como se muestra en la sigueinte tabla. El código completo está en [`Scripts/02_limpieza.sql`](./Scripts/02_limpieza.sql).
+Revisé las cuatro tablas con cinco controles de calidad primeramente detectando valores nulos, duplicados, textos inconsistentes, ranfo de fechas y la consistencia entre las tablas, como se muestra en la siguiente tabla. El código completo está en [`Scripts/02_limpieza.sql`](./Scripts/02_limpieza.sql).
  
 | # | Control | Tabla | Hallazgo | Acción |
 |---|---|---|---|---|
@@ -203,8 +198,88 @@ GROUP BY shipping_region;
 ```
 ![Texto inconsistente en shipping_region](./Picture/limpieza_region_verificada.png)
 
+#### 4. Reglas para el análisis
+ 
+- El análisis usa `orders_clean` y `customers_clean`; `order_items` y `products` se usan tal cual.
+- Ventas y costos se calculan desde `order_items` u `orders`, nunca desde el catálogo.
+- Los productos se agrupan por `product_id`, no por nombre.
+- Febrero 2026 está incompleto: se excluye de las comparaciones mensuales.
+- En jul-2025 cambió la lista de precios: al comparar crecimiento entre años, se separa el efecto de precio del efecto de volumen (pedidos y unidades).
+- Los montos se redondean solo en el resultado final (`ROUND(SUM(...), 2)`), nunca antes de sumar.
 
 ## Análisis Exploratorio de Datos (EDA) e Insights
+
+**Definición de venta usada en todo el análisis:** pedidos con estado `COMPLETED`, medidos con `merchandise_value` (valor de los productos, sin envío). Los pedidos cancelados y devueltos se analizan aparte en la pregunta 6. Febrero 2026 se excluye por estar incompleto. Todas las queries están en [`Scripts/03_analisis.sql`](./Scripts/03_analisis.sql).
+
+### Pregunta 1: ¿Cómo evolucionan las ventas, los pedidos y el ticket promedio cada mes?
+ 
+**Análisis:** agrupé los pedidos completados por mes con `DATE_FORMAT` y calculé las ventas con `SUM`, los pedidos con `COUNT` y el ticket promedio como ventas entre pedidos.
+ 
+Las ventas son **estacionales**: suben en mayo (coincide con el Día de la Madre), alcanzan su pico en noviembre y diciembre, y caen a su punto más bajo en enero. El patrón se repite en 2024 y en 2025. Además hay una **tendencia de crecimiento**: 2025 vendió **19,2 % más** que 2024, impulsado sobre todo por más pedidos (+17,1 %) y en menor medida por un ticket más alto (+1,8 %).
+ 
+```sql
+SELECT
+    DATE_FORMAT(order_datetime, 'yyyy-MM')              AS fecha,
+    COUNT(order_id)                                     AS pedidos,
+    ROUND(SUM(merchandise_value), 2)                    AS ventas,
+    ROUND(SUM(merchandise_value) / COUNT(order_id), 2)  AS ticket_promedio
+FROM orders_clean
+WHERE order_status = 'COMPLETED'
+  AND order_datetime < '2026-02-01'
+GROUP BY fecha
+ORDER BY fecha;
+```
+
+![Ventas mensuales](./Picture/Pregunta_1.png)
+
+_Ventas mensuales de pedidos completados (ene-2024 a ene-2026)_
+
+### Pregunta 2: ¿Cómo varían las ventas contra el mismo mes del año anterior y qué mes rompe la tendencia?
+ 
+**Análisis:** comparar enero contra diciembre mezcla la estacionalidad con el desempeño real, porque enero siempre cae después de las fiestas. Por eso comparé cada mes con **el mismo mes del año anterior**: con `LAG` y `PARTITION BY MONTH(mes)`, enero se compara solo con enero y la estacionalidad queda neutralizada. Usé dos CTE: la primera arma las ventas por mes y la segunda trae el valor del año anterior.
+ 
+**Lo que se creía:** que la caída de enero 2026 era estacional, "como todos los eneros".
+ 
+**Lo que mostró la data:**
+- Durante **12 meses seguidos** (ene-2025 a dic-2025) las ventas crecieron entre **9,3 % y 25 %** frente al mismo mes del año anterior. En enero 2025, por ejemplo, crecieron 15 % gracias a más pedidos (+18,9 %).
+- En **enero 2026 la tendencia se rompe:** las ventas caen **9,4 % (−14,5 mil soles)** frente a enero 2025. El mes está completo (31 días con pedidos), así que no es un error de corte.
+- La caída viene de **los pedidos, no del ticket:** hubo 134 pedidos menos (−13,2 %), lo que restó **≈ 20,3 mil soles**. El ticket subió 4,4 % y recuperó **≈ 5,9 mil soles**.
+- La caída después de las fiestas fue más profunda que el año anterior: de diciembre a enero las ventas bajaron **−64,9 %** en 2026, contra **−51,6 %** en 2025.
+**Conclusión:** la estacionalidad existe, pero **no explica** la caída de enero 2026. Algo cambió ese mes y afectó la cantidad de pedidos. Las siguientes preguntas buscan dónde.
+ 
+```sql
+WITH ventas_mes AS (
+    SELECT
+        DATE_TRUNC('MONTH', order_datetime) AS mes,
+        COUNT(order_id)                     AS pedidos,
+        SUM(merchandise_value)              AS ventas
+    FROM orders_clean
+    WHERE order_status = 'COMPLETED' AND order_datetime < '2026-02-01'
+    GROUP BY DATE_TRUNC('MONTH', order_datetime)
+),
+mismo_mes_anio_anterior AS (
+    SELECT
+        mes, pedidos, ventas,
+        LAG(ventas)  OVER (PARTITION BY MONTH(mes) ORDER BY YEAR(mes)) AS ventas_aa,
+        LAG(pedidos) OVER (PARTITION BY MONTH(mes) ORDER BY YEAR(mes)) AS pedidos_aa
+    FROM ventas_mes
+)
+SELECT
+    DATE_FORMAT(mes, 'yyyy-MM')                                         AS fecha,
+    ROUND(ventas, 2)                                                    AS ventas,
+    ROUND(ventas - ventas_aa, 2)                                        AS diferencia_ventas,
+    ROUND((ventas - ventas_aa) / ventas_aa * 100, 1)                    AS crec_ventas_pct,
+    ROUND((pedidos - pedidos_aa) / pedidos_aa * 100, 1)                 AS crec_pedidos_pct,
+    ROUND(((ventas / pedidos) / (ventas_aa / pedidos_aa) - 1) * 100, 1) AS crec_ticket_pct,
+    CASE WHEN ventas > ventas_aa THEN 'Crece' ELSE 'Cae' END            AS tendencia
+FROM mismo_mes_anio_anterior
+WHERE ventas_aa IS NOT NULL
+ORDER BY mes;
+```
+
+![Crecimiento interanual](./Picture/Pregunta_2.png)
+ 
+_Variación de cada mes frente al mismo mes del año anterior_
 
 
 ## Conclusion
