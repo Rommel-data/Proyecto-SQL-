@@ -385,9 +385,9 @@ _Ventas, ticket y envío por región (2024–2025)_
  
 ### Pregunta 6: ¿Cómo crecen las ventas frente al mismo mes del año anterior?
  
-Comparar enero contra diciembre mezcla la estacionalidad con el desempeño real: enero siempre cae después de las fiestas. Por eso comparé cada mes con **el mismo mes del año anterior**, usando `LAG` con `PARTITION BY MONTH(mes)`, para que enero se compare solo con enero.
- 
-Durante **12 meses seguidos** las ventas crecieron entre **9 % y 25 %**. En **enero 2026 la tendencia se rompe**: las ventas caen **9,4 % (−14,5 mil soles)** y los pedidos, **13,2 %**. El ticket subió (≈ 4 %), en línea con el aumento de precios de julio 2025. **La caída no es estacional y viene de la cantidad de pedidos.**
+Comparar enero contra diciembre mezcla la estacionalidad con el desempeño real, porque enero siempre cae después de las fiestas. Por eso comparé cada mes con el mismo mes del año anterior, y después descompuse la caída de enero 2026 en pedidos y ticket.
+
+Paso 1 · Crecimiento interanual. Usé LAG con PARTITION BY MONTH(mes) para que cada mes se compare solo con el mismo mes del año anterior. Durante 12 meses seguidos las ventas crecieron entre 9,3 % y 25 %. En enero 2026 la tendencia se rompe: −9,4 %. Como la comparación es enero contra enero, la estacionalidad ya está neutralizada: la caída no es estacional.
  
 ```sql
 WITH ventas_mes AS (
