@@ -1,6 +1,16 @@
 -- =====================================================================
 -- 01_DDL.sql · Proyecto SQL Tunki · Databricks SQL
 -- Estructura de las 4 tablas del catálogo bd_e_commerce_tunki.default
+--
+-- Cómo entraron los datos: los 4 CSV de Data/ se subieron con la carga de
+-- archivos de Databricks, que crea cada tabla e infiere sus tipos. Por eso
+-- no hay INSERT INTO: las filas vienen en el archivo.
+--
+-- Para qué sirve este DDL: documenta el nombre y el tipo de cada columna,
+-- y permite recrear la estructura en otro motor.
+--
+-- ⚠ No ejecutar sobre las tablas ya cargadas: CREATE OR REPLACE las
+--   reemplaza por tablas vacías y se pierden las filas.
 -- =====================================================================
 
 USE CATALOG bd_e_commerce_tunki;
@@ -47,3 +57,34 @@ CREATE OR REPLACE TABLE order_items (
   unit_price     DOUBLE,
   unit_cost      DOUBLE
 );
+
+
+-- =====================================================================
+-- CONTROL DE CARGA · ¿Llegó todo el CSV a Databricks?
+-- =====================================================================
+
+-- a) Mismas filas que el CSV
+SELECT 'customers'   AS tabla, 
+        COUNT(*) AS filas, 
+        22482 AS filas_csv 
+FROM customers
+UNION ALL
+SELECT 'orders',               
+        COUNT(*),          
+        39528              
+FROM orders
+UNION ALL
+SELECT 'order_items',          
+        COUNT(*),          
+        74821              
+FROM order_items
+UNION ALL
+SELECT 'products',             
+        COUNT(*),           
+        400                 
+FROM products;
+-- Resultado: las 4 tablas coinciden con su CSV
+
+-- b) Tipos inferidos por Databricks (deben coincidir con el DDL de arriba)
+DESCRIBE TABLE orders;
+-- Esperado: order_datetime timestamp · items_count bigint (= LONG) · montos double

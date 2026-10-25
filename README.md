@@ -1,499 +1,171 @@
-![Tunki Sales Analytics](./Picture/baneer%20vertical.png)
-# Proyecto SQL: Análisis de Ventas del E-commerce Tunki - Ventas, ticket promedio y margen
-
-
-## Resumen (Overview)
-
-_**Tunki** es un e-commerce peruano de artículos para el hogar —desde decoración, menaje, textiles, organización e iluminación hasta muebles y pequeños electrodomésticos de cocina— que vende en Lima y en provincia. Su equipo comercial enfrenta dos problemas:_
+![Rommel Data — Analítica de datos, IA aplicada, decisiones de negocio](Picture/banner.png)
  
-- **No tiene una visión clara de qué productos, clientes y regiones sostienen el negocio.**
-- **Las ventas de inicios de 2026 encendieron las alertas.**
-_Mi objetivo es utilizar **SQL** dentro de **Databricks** para analizar sus datos de ventas, encontrar qué impulsa y qué frena el negocio, y entregar recomendaciones que ayuden al equipo comercial a tomar mejores decisiones._
+# 🛒 Análisis de Ventas del E-commerce Tunki — SQL en Databricks, Limpieza y Funciones de Ventana
  
-**Resultado:** la caída de inicios de 2026 no fue estacional. Se concentró en provincia (−56 % de pedidos en enero), justo después de que Tunki subiera la tarifa y el umbral de envío gratis para esa región.
-
-![Resumen del proyecto](./Picture/Resumen_proyecto.png)
-
+**Las ventas de enero 2026 cayeron 9,4 % frente a enero 2025, después de 12 meses seguidos de crecimiento. La explicación fácil era la estacionalidad, y no lo era.** Este es el proyecto SQL que separó la caída por región, rango de monto y tarifa de envío, hasta ubicarla en provincia, justo cuando cambió su política de envío.
+ 
+`SQL` · `Databricks SQL` · `CTEs` · `Funciones de ventana`
+ 
+E-commerce de artículos para el hogar · Lima y provincia · Enero 2024 – Febrero 2026 · **39.331 pedidos** · 4 tablas CSV · 137.231 registros crudos · *caso de práctica con datos sintéticos*
+ 
+![Resumen del proyecto](Picture/resumen_proyecto.png)
+ 
 ## 📩 Conéctate conmigo
+ 
+¿Tienes ventas que cayeron y nadie sabe por qué, o datos repartidos en varias tablas que nadie se anima a cruzar? Eso es lo que resuelvo: limpiar el dato, hacerle la pregunta correcta en SQL y dejar una recomendación accionable.
+ 
 <p align="center">
   <a href="https://www.linkedin.com/in/rommel-aar%C3%B3n-reynaga-alvarado-470299222/">
     <img src="https://img.shields.io/badge/LinkedIn-0077B5?style=flat-square&logo=linkedin&logoColor=white" />
   </a>
 </p>
 
-## Estructura del Proyecto
+## 🗂️ Estructura del Proyecto
  
-- [Sobre los Datos](#sobre-los-datos)
-- [Tareas](#tareas)
-- [Limpieza de Datos](#limpieza-de-datos)
-- [Análisis Exploratorio de Datos (EDA) e Insights](#análisis-exploratorio-de-datos-eda-e-insights)
-- [Conclusión](#conclusión)
+1. [🎯 El problema y las hipótesis](#-1-el-problema-y-las-hipótesis)
+2. [🔧 Los datos: fuente, carga y limpieza](#-2-los-datos-fuente-carga-y-limpieza)
+3. [🔍 El análisis: preguntas del equipo comercial](#-3-el-análisis-preguntas-del-equipo-comercial)
+4. [💡 Conclusión y recomendación](#-4-conclusión-y-recomendación)
+5. [⚠️ Alcance y limitaciones](#-5-alcance-y-limitaciones)
+---
+ 
+## 🎯 1. El problema y las hipótesis
+ 
+### El negocio
+ 
+**Tunki** es un e-commerce peruano de artículos para el hogar. Vende 400 productos en 7 categorías —decoración, menaje, textiles, organización, iluminación, muebles y pequeños electrodomésticos de cocina— a clientes de Lima y de provincia, que llegan por tres canales: orgánico, pauta digital y referidos.
+ 
+Gana dinero con el margen entre el precio de venta y el costo del producto. A ese margen le descuenta dos costos por pedido: el **envío**, que le cuesta más de lo que le cobra al cliente, y la **comisión del medio de pago**.
+ 
+### El problema
+ 
+> *"Enero arrancó mal y no sabemos por qué."* — Gerente comercial
+ 
+El gerente comercial y sus supervisores de venta siguen el negocio desde la operación: las campañas, el catálogo, lo que reportan sus equipos. Ven que enero vendió menos, pero no miran las transacciones que guarda el sistema, así que no saben **dónde** cayó la venta ni **por qué**.
+ 
+### La magnitud
+ 
+Enero 2026 vendió **S/ 140,1 mil**, frente a S/ 154,6 mil en enero 2025: **−9,4 %, S/ 14,5 mil menos**.
+ 
+No es un mal mes cualquiera: durante los 12 meses anteriores, cada mes había vendido entre 9,3 % y 25 % más que el mismo mes del año anterior. Enero 2026 es el primero que vende menos.
+ 
+### El objetivo
+ 
+**Del negocio:** que desde marzo 2026 cada mes vuelva a vender más que el mismo mes del año anterior.
+ 
+**Del análisis:** encontrar con los datos dónde se concentra la caída —de lo general a lo particular: período, categoría, producto, región— y qué la explica, para que el equipo comercial sepa sobre qué actuar.
+ 
+### Las hipótesis
+ 
+| # | Hipótesis | Qué la daría por falsa |
+|---|---|---|
+| H1 | La caída es estacional: enero siempre vende menos que diciembre | Que enero 2026 también caiga frente a enero 2025 |
+| H2 | La caída se concentra en algunas categorías o productos | Que todas las categorías caigan en una proporción parecida |
+| H3 | La caída se concentra en una región | Que Lima y provincia caigan en una proporción parecida |
+ 
+---
 
-## Sobre los Datos
+## 🔧 2. Los datos: fuente, carga y limpieza
  
-Son cuatro tablas que registran los clientes, los pedidos, el detalle de cada pedido y el catálogo de productos de Tunki. Los CSV se cargaron en Databricks con su asistente de carga de archivos; la estructura resultante está en [`Scripts/01_DDL.sql`](./Scripts/01_DDL.sql).
+### La fuente
+ 
+Cuatro archivos CSV de un **dataset sintético generado con IA**, que simula el sistema de ventas de Tunki. Como no contiene información de ninguna empresa real, se publica completo en [`Data/`](Data/).
+ 
+| Tabla | Qué registra | Filas × columnas | Grano | Aporta |
+|---|---|---|---|---|
+| `customers` | Clientes registrados | 22.482 × 5 | Un cliente | Región, ciudad, canal de adquisición, fecha de registro |
+| `orders` | Cabecera de pedidos | 39.528 × 10 | Un pedido | Fecha, estado, monto, costo, envío cobrado y costo real del envío |
+| `order_items` | Detalle de pedidos | 74.821 × 6 | Una línea de pedido | Producto, cantidad, precio y costo de cada venta |
+| `products` | Catálogo de productos | 400 × 5 | Un producto | Nombre, categoría, precio y costo |
  
 ```mermaid
 erDiagram
-    customers ||--o{ orders : "realiza"
-    orders ||--|{ order_items : "contiene"
-    products ||--o{ order_items : "aparece en"
+    customers ||--o{ orders : "customer_id"
+    orders ||--|{ order_items : "order_id"
+    products ||--o{ order_items : "product_id"
 ```
-
-## Tareas
-
-En este análisis ayudo al equipo comercial a responder lo siguiente:
  
-1. **Ventas en el tiempo:** ¿Cómo evolucionan las ventas, los pedidos y el ticket promedio cada mes?
-2. **Pedidos perdidos:** ¿Qué porcentaje de pedidos se cancela o se devuelve cada año?
-3. **Categorías:** ¿Qué categorías venden más y cuáles dejan más margen?
-4. **Productos top:** ¿Cuáles son los 3 productos más vendidos de cada categoría?
-5. **Regiones:** ¿Cómo se comparan Lima y provincia en ventas, ticket y costo de envío?
-6. **Crecimiento:** ¿Cómo crecen las ventas frente al mismo mes del año anterior?
-7. **Caída de enero:** ¿En qué región y en qué tipo de pedido cayó enero 2026?
-8. **Envío:** ¿Qué cambió en el envío a provincia en enero 2026?
-
-## Limpieza de Datos
-
-Revisé las cuatro tablas con cinco controles de calidad: valores nulos, duplicados, textos inconsistentes, rango de fechas y consistencia entre tablas. La siguiente tabla resume qué encontré en cada control y qué hice al respecto. El código completo está en [`Scripts/02_limpieza.sql`](./Scripts/02_limpieza.sql).
+### La carga
  
-| # | Control | Tabla | Hallazgo | Acción |
+Subí los cuatro CSV a Databricks (`bd_e_commerce_tunki.default`) con la carga de archivos, que crea cada tabla e infiere el tipo de cada columna. **No hay `INSERT INTO`, porque las filas vienen en el archivo.** El [`01_DDL.sql`](Scripts/01_DDL.sql) documenta la estructura resultante.
+ 
+**Control de carga:** las cuatro tablas tienen en Databricks las mismas filas que su CSV.
+ 
+### La limpieza
+ 
+Pasé las tablas por cuatro controles de calidad. Cada problema que encontré sigue el mismo recorrido: **detectarlo**, **corregirlo** creando una tabla nueva (las originales no se tocan) y **verificar** que la corrección funcionó.
+ 
+| Etapa | Control | Tabla | SQL utilizado | Resultado |
 |---|---|---|---|---|
-| 1 | Valores nulos | `customers` | 435 clientes sin `city` | Se marcan como "Sin dato" |
-| 2 | Duplicados | `orders` | 197 pedidos registrados dos veces | Se eliminan → `orders_clean` |
-| 3 | Texto inconsistente | `customers` | `shipping_region` escrito de 10 formas para 2 regiones | Se estandariza → `customers_clean` |
-| 4 | Rango de fechas | `orders` | Datos del 01-01-2024 al 12-02-2026; febrero 2026 solo tiene 12 días | Regla: excluir feb-2026 de comparaciones mensuales |
-| 5 | Consistencia entre tablas | `order_items`, `products` | En jul-2025 se actualizó la lista (precios +4 %, costos +3 %); el catálogo solo guarda la lista vigente, por eso las ventas anteriores no coinciden con él. Además, 400 productos comparten 208 nombres | Regla: calcular desde `order_items`; agrupar por `product_id` |
-
-#### 1. Detección
-
-**1.1 Valores nulos (`customers`)**
-```sql
-SELECT 
-  COUNT(*) AS filas, 
-  count_if(city IS NULL) AS nulos_city
-FROM customers;
--- 435 clientes sin ciudad
-```
+| **Detección** | Valores nulos | `customers` | `count_if(... IS NULL)` | 435 clientes sin `city` |
+| **Detección** | Duplicados | `orders` | `COUNT(*)` · `COUNT(DISTINCT)` · `SELECT DISTINCT *` | 197 pedidos repetidos, copias exactas |
+| **Detección** | Texto inconsistente | `customers` | `SELECT DISTINCT shipping_region` | 10 formas de escribir 2 regiones |
+| **Detección** | Rango de fechas | `orders` | `MIN` · `MAX` · `date_format` | Del 01-01-2024 al 12-02-2026; febrero 2026 solo tiene 12 días |
+| **Limpieza** | Valores nulos | `customers` → `customers_clean` | `COALESCE(city, 'Sin dato')` | Los nulos pasan a "Sin dato" |
+| **Limpieza** | Duplicados | `orders` → `orders_clean` | `CREATE TABLE AS SELECT DISTINCT *` | Se eliminan las 197 copias |
+| **Limpieza** | Texto inconsistente | `customers` → `customers_clean` | `LOWER(TRIM(shipping_region))` | Las 10 variantes quedan en 2 |
+| **Limpieza** | Rango de fechas | — | No se borra | Febrero 2026 se excluye de las comparaciones mensuales |
+| **Verificación** | Valores nulos | `customers_clean` | `count_if(city IS NULL)` | 0 nulos |
+| **Verificación** | Duplicados | `orders_clean` | `COUNT(*)` vs `COUNT(DISTINCT order_id)` · `SUM` vs `order_items` | 39.331 = 39.331, y el monto cuadra con el detalle: se quitaron S/ 29.758,91 contados dos veces |
+| **Verificación** | Texto inconsistente | `customers_clean` | `GROUP BY shipping_region` | Lima 12.699 + provincia 9.783 = 22.482 clientes |
  
-**1.2 Pedidos duplicados (`orders`)**
-```sql
-SELECT 
-  COUNT(*) AS filas_totales, 
-  COUNT(DISTINCT order_id) AS pedidos_unicos
-FROM orders;
--- 39.528 filas vs 39.331 pedidos → 197 duplicados
-```
+#### Detección
  
-**1.3 Texto inconsistente (`customers.shipping_region`)**
 ```sql
-SELECT 
-  DISTINCT shipping_region 
-FROM customers 
-ORDER BY shipping_region;
-```
-![Texto inconsistente en shipping_region](./Picture/Texto_incosistente.png)
-
-
-**1.4 Rango de fechas (`orders`)**
-```sql
-SELECT 
-  DATE(MIN(order_datetime)) AS primer_pedido,
-  DATE(MAX(order_datetime)) AS ultimo_pedido
-FROM orders;
+-- 1 · Valores nulos (se revisaron las 4 tablas; solo customers.city tiene)
+SELECT COUNT(*) AS filas, 
+        count_if(city IS NULL) AS nulos_city
+FROM customers;                                          
+-- 22.482 · 435
  
-SELECT 
-  date_format(order_datetime, 'yyyy-MM') AS mes,
-  COUNT(DISTINCT DATE(order_datetime))   AS dias_con_pedidos
+-- 2 · Duplicados: ¿cuántas filas, cuántos pedidos y cuántas filas distintas?
+SELECT
+  (SELECT COUNT(*) FROM orders)                          AS filas,
+  (SELECT COUNT(DISTINCT order_id) FROM orders)          AS pedidos_unicos,
+  (SELECT COUNT(*) FROM (SELECT DISTINCT * FROM orders)) AS filas_distintas;
+-- 39.528 · 39.331 · 39.331
+ 
+-- 3 · Texto inconsistente
+SELECT DISTINCT shipping_region
+FROM customers
+ORDER BY shipping_region;                                
+-- 10 variantes
+ 
+-- 4 · Rango de fechas y días por mes
+SELECT
+  date_format(order_datetime, 'yyyy-MM')  AS mes,
+  COUNT(DISTINCT DATE(order_datetime))    AS dias_con_pedidos
 FROM orders
-GROUP BY 1 
-ORDER BY 1;
--- Febrero 2026: solo 12 días con pedidos
+GROUP BY mes
+ORDER BY mes;                                              
+-- feb-2026: 12 días
 ```
  
-**1.5 Consistencia entre tablas**
-```sql
--- a) ¿El monto del pedido cuadra con la suma de sus líneas? → 0 diferencias
-WITH monto_por_pedido AS (
-  SELECT 
-      order_id, 
-      SUM(quantity * unit_price) AS total_lineas
-  FROM order_items 
-  GROUP BY order_id
-)
-SELECT 
-  count_if(ABS(o.merchandise_value - mp.total_lineas) > 0.01) AS pedidos_que_no_cuadran
-FROM orders o
-JOIN monto_por_pedido mp ON mp.order_id = o.order_id;
+Que las filas distintas (39.331) sean iguales a los pedidos únicos prueba que los duplicados son **copias exactas**: por eso alcanza con `SELECT DISTINCT *`.
  
--- b) ¿El precio de cada venta coincide con el catálogo? → 49.674 de 74.821 no coinciden
-SELECT 
-  count_if(oi.unit_price <> p.unit_price) AS precio_distinto,
-  count_if(oi.unit_cost  <> p.unit_cost)  AS costo_distinto,
-  COUNT(*)                                AS lineas
-FROM order_items oi
-JOIN products p ON p.product_id = oi.product_id;
+![Texto inconsistente en shipping_region](Picture/Texto_incosistente.png)
  
--- b2) ¿Desde cuándo coinciden? → hasta jun-2025 ninguna; desde jul-2025 todas
-SELECT 
-  date_format(o.order_datetime, 'yyyy-MM') AS mes,
-  count_if(oi.unit_price <> p.unit_price)  AS lineas_precio_distinto,
-  COUNT(*)                                 AS lineas
-FROM order_items oi
-JOIN products p     ON p.product_id = oi.product_id
-JOIN orders_clean o ON o.order_id   = oi.order_id
-GROUP BY 1 
-ORDER BY 1;
-
--- b3) ¿Cuánto cambió la lista? → precios +4 %, costos +3 %
-SELECT 
-  ROUND(AVG(p.unit_price / oi.unit_price - 1) * 100, 2) AS cambio_precio_pct,
-  ROUND(AVG(p.unit_cost  / oi.unit_cost  - 1) * 100, 2) AS cambio_costo_pct
-FROM order_items oi
-JOIN products p     ON p.product_id = oi.product_id
-JOIN orders_clean o ON o.order_id   = oi.order_id
-WHERE o.order_datetime < '2025-07-01';
+El código de la limpieza y de la verificación, con el resultado de cada consulta, está en [`Scripts/02_limpieza.sql`](Scripts/02_limpieza.sql).
  
--- c) ¿El nombre identifica al producto? → 400 productos, 208 nombres
-SELECT 
-  COUNT(*) AS productos, 
-  COUNT(DISTINCT product_name) AS nombres_unicos
-FROM products;
-```
-
-#### 2. Limpieza
-
-```sql
--- Pedidos sin duplicados
-CREATE OR REPLACE TABLE orders_clean AS
-SELECT 
-  DISTINCT *
-FROM orders;
-
--- Clientes con región estandarizada y ciudad sin nulos
-CREATE OR REPLACE TABLE customers_clean AS
-SELECT
-  customer_id,
-  signup_date,
-  LOWER(TRIM(shipping_region))  AS shipping_region,
-  COALESCE(city, 'Sin dato')    AS city,
-  acquisition_channel
-FROM customers;
-```
-
-#### 3. Verificación
-
-```sql
--- 39.331 filas = 39.331 pedidos únicos
-SELECT 
-  COUNT(*) AS filas, 
-  COUNT(DISTINCT order_id) AS pedidos_unicos
-FROM orders_clean;
-
--- 2 regiones; 12.699 + 9.783 = 22.482 clientes, el mismo total de la tabla original
-SELECT 
-  shipping_region, 
-  COUNT(*) AS clientes
-FROM customers_clean
-GROUP BY shipping_region;
-```
-![Texto inconsistente en shipping_region](./Picture/limpieza_region_verificada.png)
-
-#### 4. Reglas para el análisis
+### Las reglas para el análisis
  
-- El análisis usa `orders_clean` y `customers_clean`; `order_items` y `products` se usan tal cual.
-- Ventas y costos se calculan desde `order_items` u `orders_clean`, nunca desde el catálogo.
-- Los productos se agrupan por `product_id`, no por nombre.
-- Febrero 2026 está incompleto: se excluye de las comparaciones mensuales.
-- En jul-2025 cambió la lista de precios: al comparar crecimiento entre años, se separa el efecto de precio del efecto de volumen (pedidos y unidades).
-- Los montos se redondean solo en el resultado final (`ROUND(SUM(...), 2)`), nunca antes de sumar.
-
-## Análisis Exploratorio de Datos (EDA) e Insights
-
-**Definición de venta usada en todo el análisis:** pedidos con estado `COMPLETED`, medidos con `merchandise_value` (valor de los productos, sin envío). Febrero 2026 se excluye por estar incompleto. Todas las queries están en [`Scripts/03_analisis.sql`](./Scripts/03_analisis.sql).
-
-### Pregunta 1: ¿Cómo evolucionan las ventas, los pedidos y el ticket promedio cada mes?
+- Usar `orders_clean` y `customers_clean`; `order_items` y `products`, tal cual.
+- Para comparar regiones, usar `shipping_region`: `city` tiene clientes "Sin dato".
+- Excluir febrero 2026 de las comparaciones mensuales.
+- Redondear solo el resultado final: `ROUND(SUM(...), 2)`, nunca antes de sumar.
+---
  
-Respondí en dos pasos: primero la evolución mes a mes, para ver el patrón; después el total por año, para medir cuánto creció el negocio.
+## 🔍 3. El análisis: preguntas del equipo comercial
  
-**Paso 1 · Ventas por mes.** Agrupé los pedidos completados por mes y calculé las ventas, los pedidos y el ticket promedio (ventas entre pedidos). Las ventas son **estacionales**: en los dos años suben en mayo (coincide con el Día de la Madre), llegan a su pico en diciembre y caen a su punto más bajo en enero. El ticket se mantiene estable, entre 147 y 161 soles, así que **lo que mueve las ventas es la cantidad de pedidos**. La señal de alerta: **enero 2026 (140,1 mil) vendió menos que enero 2025 (154,6 mil)**, cuando todos los meses de 2025 habían superado al mismo mes de 2024.
+**Definición de venta:** pedidos con estado `COMPLETED`, medidos con `merchandise_value` (valor de los productos, sin envío). Febrero 2026 se excluye por estar incompleto.
  
-```sql
-SELECT
-    DATE_FORMAT(order_datetime, 'yyyy-MM')              AS fecha,
-    COUNT(order_id)                                     AS pedidos,
-    ROUND(SUM(merchandise_value), 2)                    AS ventas,
-    ROUND(SUM(merchandise_value) / COUNT(order_id), 2)  AS ticket_promedio
-FROM orders_clean
-WHERE order_status = 'COMPLETED'
-  AND order_datetime < '2026-02-01'
-GROUP BY fecha
-ORDER BY fecha;
-```
-
-![Ventas mensuales](./Picture/Pregunta_1.png)
-
-_Ventas mensuales de pedidos completados (ene-2024 a ene-2026)_
-
-**Paso 2 · Crecimiento anual.** Puse 2024 y 2025 en una sola fila con agregación condicional (`count_if` y `SUM(CASE WHEN ...)`) y calculé el crecimiento de las ventas, de los pedidos y del ticket.
+Las preguntas van de lo general a lo particular: primero se mide el fenómeno, después se pone a prueba cada hipótesis.
  
-2025 vendió **19,2 % más** que 2024 (3,02 M vs 2,53 M de soles). Como **ventas = pedidos × ticket**, el crecimiento de las ventas es la multiplicación de los otros dos:
- 
-> (1 + 17,1 % pedidos) × (1 + 1,8 % ticket) = 1,171 × 1,018 = **1,192 → +19,2 % en ventas**
- 
-Casi todo el crecimiento vino de **vender más pedidos**, no de un ticket más alto.
- 
-```sql
-WITH anual AS (
-    SELECT
-        count_if(YEAR(order_datetime) = 2024)                                 AS pedidos_2024,
-        count_if(YEAR(order_datetime) = 2025)                                 AS pedidos_2025,
-        SUM(CASE WHEN YEAR(order_datetime) = 2024 THEN merchandise_value END) AS ventas_2024,
-        SUM(CASE WHEN YEAR(order_datetime) = 2025 THEN merchandise_value END) AS ventas_2025
-    FROM orders_clean
-    WHERE order_status = 'COMPLETED'
-)
-SELECT
-    ROUND(ventas_2024, 2)                                                       AS ventas_2024,
-    ROUND(ventas_2025, 2)                                                       AS ventas_2025,
-    ROUND((ventas_2025 / ventas_2024 - 1) * 100, 1)                             AS crec_ventas_pct,
-    ROUND((pedidos_2025 / pedidos_2024 - 1) * 100, 1)                           AS crec_pedidos_pct,
-    ROUND(((ventas_2025 / pedidos_2025) / (ventas_2024 / pedidos_2024) - 1) * 100, 1) AS crec_ticket_pct
-FROM anual;
-```
- 
-![Crecimiento anual](./Picture/P1_2.png)
- 
-_Crecimiento de ventas, pedidos y ticket: 2025 vs 2024_
-
-### Pregunta 2: ¿Qué porcentaje de pedidos se cancela o se devuelve cada año?
- 
-Conté por año los pedidos cancelados y devueltos con `count_if`, calculé su porcentaje sobre el total y sumé el valor de los pedidos que no se concretaron.
- 
-Cada año se pierde **≈ 4,5 % de los pedidos** (≈ 3 % cancelados y 1,6 % devueltos), equivalente a **263 mil soles** entre 2024 y 2025. La tasa es estable, y en enero 2026 no subió. **Las cancelaciones no explican la caída de enero.**
-
-```sql
-SELECT
-    YEAR(order_datetime)                                                AS anio,
-    COUNT(*)                                                            AS pedidos,
-    ROUND(count_if(order_status = 'CANCELLED') * 100.0 / COUNT(*), 1)   AS pct_cancelados,
-    ROUND(count_if(order_status = 'RETURNED')  * 100.0 / COUNT(*), 1)   AS pct_devueltos,
-    ROUND(SUM(CASE WHEN order_status <> 'COMPLETED'
-                   THEN merchandise_value ELSE 0 END), 2)               AS ventas_perdidas
-FROM orders_clean
-WHERE order_datetime < '2026-02-01'
-GROUP BY anio
-ORDER BY anio;
--- La fila 2026 corresponde solo a enero
-```
-
-![Crecimiento interanual](./Picture/Pregunta_2.png)
- 
-_Pedidos cancelados y devueltos por año_
-
-### Pregunta 3: ¿Qué categorías venden más y cuáles dejan más margen?
- 
-Uní el detalle de pedidos con el catálogo (para la categoría) y con los pedidos (para filtrar los completados). La venta y el margen se calculan **por línea**: `quantity × unit_price` y `quantity × (unit_price − unit_cost)`.
- 
-Organización, decoración y menaje concentran el **68 % de las ventas** y el **72 % del margen**, con márgenes de 45–52 %. Muebles y cocina-electro venden poco y con el margen más bajo (30–34 %).
- 
-
-```sql
-SELECT
-    p.category                                                       AS categoria,
-    ROUND(SUM(oi.quantity * oi.unit_price), 2)                       AS ventas,
-    ROUND(SUM(oi.quantity * (oi.unit_price - oi.unit_cost)), 2)      AS margen_bruto,
-    ROUND(SUM(oi.quantity * (oi.unit_price - oi.unit_cost))
-          / SUM(oi.quantity * oi.unit_price) * 100, 1)               AS margen_pct
-FROM order_items oi
-JOIN products p     ON p.product_id = oi.product_id
-JOIN orders_clean o ON o.order_id   = oi.order_id
-WHERE o.order_status = 'COMPLETED'
-  AND o.order_datetime < '2026-02-01'
-GROUP BY p.category
-ORDER BY ventas DESC;
-```
- 
-![Ventas y margen por categoría](./Picture/pregunta_3.png)
- 
-_Ventas y margen bruto por categoría_
-
-### Pregunta 4: ¿Cuáles son los 3 productos más vendidos de cada categoría?
- 
-Sumé las ventas por producto en una CTE y numeré los productos dentro de cada categoría con `ROW_NUMBER()`, de mayor a menor venta. Agrupé por `product_id` y no por nombre, porque hay nombres repetidos: "Repisa Nazca" aparece en el top de menaje y de muebles, y son dos productos distintos.
- 
-Hay productos que sostienen solos su categoría: **"Organizador Cusco" vende 412,6 mil soles, casi el triple que el segundo de decoración** (145,3 mil). Son productos que no pueden quedarse sin stock.
- 
-```sql
-WITH ventas_producto AS (
-    SELECT
-        p.category                          AS categoria,
-        p.product_id,
-        p.product_name,
-        SUM(oi.quantity * oi.unit_price)    AS ventas
-    FROM order_items oi
-    JOIN products p     ON p.product_id = oi.product_id
-    JOIN orders_clean o ON o.order_id   = oi.order_id
-    WHERE o.order_status = 'COMPLETED'
-      AND o.order_datetime < '2026-02-01'
-    GROUP BY p.category, p.product_id, p.product_name
-)
-SELECT *
-FROM (
-    SELECT
-        categoria, 
-        product_id, 
-        product_name,
-        ROUND(ventas, 2)                                                 AS ventas,
-        ROW_NUMBER() OVER (PARTITION BY categoria ORDER BY ventas DESC)  AS puesto
-    FROM ventas_producto
-) AS ranking
-WHERE puesto <= 3
-ORDER BY categoria, puesto;
-```
- 
-![Top 3 por categoría](./Picture/Pregunta_4.png)
- 
-_Los 3 productos más vendidos de cada categoría_
- 
-### Pregunta 5: ¿Cómo se comparan Lima y provincia en ventas, ticket y costo de envío?
- 
-Uní los pedidos con los clientes para obtener la región, y comparé 2024–2025: ventas, ticket, envío cobrado y costo real del envío.
- 
-**Provincia es el 44 % de las ventas** y tiene el mismo ticket que Lima (≈ 152 vs 154 soles). Pero su envío está **subsidiado**: cuesta en promedio **26,75 soles** y se cobra **5,82**. En dos años, Tunki absorbió **333 mil soles** de envío en provincia, el doble que en Lima.
- 
-```sql
-SELECT
-    c.shipping_region                                               AS region,
-    COUNT(o.order_id)                                               AS pedidos,
-    ROUND(SUM(o.merchandise_value), 2)                              AS ventas_total,
-    ROUND(SUM(o.merchandise_value) / COUNT(o.order_id), 2)          AS ticket_promedio,
-    ROUND(AVG(o.shipping_fee_charged), 2)                           AS envio_cobrado_prom,
-    ROUND(AVG(o.shipping_cost_actual), 2)                           AS envio_costo_prom,
-    ROUND(SUM(o.shipping_cost_actual - o.shipping_fee_charged), 2)  AS subsidio_envio_total
-FROM orders_clean o
-JOIN customers_clean c ON c.customer_id = o.customer_id
-WHERE o.order_status = 'COMPLETED'
-  AND o.order_datetime < '2026-01-01'
-GROUP BY c.shipping_region
-ORDER BY ventas_total DESC;
-```
- 
-![Lima vs provincia](./Picture/Pregunta_5.png)
- 
-_Ventas, ticket y envío por región (2024–2025)_
- 
-### Pregunta 6: ¿Cómo crecen las ventas frente al mismo mes del año anterior?
- 
-Comparar enero contra diciembre mezcla la estacionalidad con el desempeño real, porque enero siempre cae después de las fiestas. Por eso comparé cada mes con el mismo mes del año anterior, y después descompuse la caída de enero 2026 en pedidos y ticket.
-
-Paso 1 · Crecimiento interanual. Usé LAG con PARTITION BY MONTH(mes) para que cada mes se compare solo con el mismo mes del año anterior. Durante 12 meses seguidos las ventas crecieron entre 9,3 % y 25 %. En enero 2026 la tendencia se rompe: −9,4 %. Como la comparación es enero contra enero, la estacionalidad ya está neutralizada: la caída no es estacional.
- 
-```sql
-WITH ventas_mes AS (
-    SELECT
-        DATE_TRUNC('MONTH', order_datetime)  AS mes,
-        SUM(merchandise_value)               AS ventas
-    FROM orders_clean
-    WHERE order_status = 'COMPLETED'
-      AND order_datetime < '2026-02-01'
-    GROUP BY mes
-),
-comparado AS (
-    SELECT
-        mes, 
-        ventas,
-        LAG(ventas)  OVER (PARTITION BY MONTH(mes) ORDER BY mes)  AS ventas_aa
-    FROM ventas_mes
-)
-SELECT
-    DATE_FORMAT(mes, 'yyyy-MM')                          AS fecha,
-    ROUND(ventas, 2)                                     AS ventas,
-    ROUND(ventas_aa, 2)                                  AS ventas_anio_anterior,
-    ROUND((ventas / ventas_aa - 1) * 100, 1)             AS crec_ventas_pct
-FROM comparado
-WHERE ventas_aa IS NOT NULL
-ORDER BY mes;
-```
- 
-![Crecimiento interanual](./Picture/Pregunta_6.png)
- 
-_Variación de cada mes frente al mismo mes del año anterior_
- 
-### Pregunta 7: ¿En qué región y en qué tipo de pedido cayó enero 2026?
- 
-Comparé los pedidos de enero 2025 y enero 2026 por región y por rango de monto del pedido. Los rangos los armé con `CASE`, y cada año lo conté en su propia columna con `count_if`.
- 
-**La caída es de provincia:** sus pedidos pasaron de 441 a 194 (−56 %), mientras Lima creció en los tres rangos. Dentro de provincia, el rango que más cayó es el de **S/ 79 a 149: −78 %** (137 → 30), casi el doble que los otros rangos (−46 %).
- 
-```sql
-SELECT
-    c.shipping_region                                  AS region,
-    CASE
-        WHEN o.merchandise_value < 79  THEN '1. Menos de S/ 79'
-        WHEN o.merchandise_value < 149 THEN '2. S/ 79 a 149'
-        ELSE                                '3. S/ 149 a más'
-    END                                                AS rango_monto,
-    count_if(YEAR(o.order_datetime) = 2025)            AS pedidos_ene_2025,
-    count_if(YEAR(o.order_datetime) = 2026)            AS pedidos_ene_2026
-FROM orders_clean o
-JOIN customers_clean c ON c.customer_id = o.customer_id
-WHERE o.order_status = 'COMPLETED' AND MONTH(o.order_datetime) = 1 AND YEAR(o.order_datetime) IN (2025, 2026)
-GROUP BY region, rango_monto
-ORDER BY region, rango_monto;
-```
- 
-![Caída por región y rango](./Picture/Pregunta_7.png)
- 
-_Pedidos de enero por región y rango de monto_
- 
-### Pregunta 8: ¿Qué cambió en el envío a provincia en enero 2026?
- 
-La data no trae la política de envío, pero se puede deducir: agrupé los pedidos por región, período y tarifa cobrada, y miré el monto mínimo y máximo de cada grupo. Eso muestra desde qué monto el envío es gratis y cuánto se cobra.
- 
-| Región | Hasta dic-2025 | Desde ene-2026 |
-|---|---|---|
-| Lima | Gratis desde S/ 79; si no, S/ 12,90 | Sin cambios |
-| Provincia | Gratis desde S/ 79; si no, S/ 19,90 | **Gratis desde S/ 149; si no, S/ 29,90** |
- 
-El **1 de enero de 2026 cambió el envío solo para provincia**: la tarifa subió 50 % y el umbral de envío gratis casi se duplicó. Los pedidos de **S/ 79 a 149**, que antes tenían envío gratis, pasaron a pagar S/ 29,90. Es justo el rango que más cayó en la pregunta 7.
- 
-```sql
-SELECT
-    c.shipping_region                                                            AS region,
-    CASE WHEN o.order_datetime < '2026-01-01' THEN '2024-2025' ELSE '2026' END   AS periodo,
-    o.shipping_fee_charged                                                       AS envio_cobrado,
-    COUNT(*)                                                                     AS pedidos,
-    ROUND(MIN(o.merchandise_value), 2)                                           AS monto_min,
-    ROUND(MAX(o.merchandise_value), 2)                                           AS monto_max
-FROM orders_clean o
-JOIN customers_clean c ON c.customer_id = o.customer_id
-WHERE o.order_status = 'COMPLETED'
-GROUP BY region, periodo, envio_cobrado
-ORDER BY region, periodo, envio_cobrado;
-```
- 
-![Política de envío](./Picture/Pregunta_8.png)
- 
-_Tarifa de envío cobrada y rango de montos por región y período_
- 
-## Conclusión
- 
-**Qué sostiene el negocio**
-- **Tres categorías** (organización, decoración y menaje) generan el 68 % de las ventas y el 72 % del margen.
-- **Algunos productos sostienen solos su categoría,** como Organizador Cusco, que vende casi el triple que el segundo de decoración.
-- **Provincia es el 44 % de las ventas,** con el mismo ticket que Lima, pero su envío está subsidiado: 333 mil soles en dos años.
-
-**Qué pasó en enero 2026**
-- **La caída no fue estacional.** Después de 12 meses de crecimiento, enero 2026 cayó 9,4 % frente a enero 2025. Las cancelaciones tampoco subieron.
-- **La caída es de provincia,** con −56 % de pedidos, mientras Lima seguía creciendo.
-- **Coincide con el cambio de envío a provincia** del 1 de enero de 2026: tarifa de S/ 19,90 a S/ 29,90 y umbral de envío gratis de S/ 79 a S/ 149. El rango que perdió el envío gratis (S/ 79–149) fue el que más cayó (−78 %).
-
-**Recomendación**
-1. **Revisar la política de envío a provincia.** El problema que buscaba resolver es real, porque el envío está subsidiado, pero la medida hizo caer los pedidos. Las alternativas a evaluar son un umbral intermedio (por ejemplo, gratis desde S/ 99) o una tarifa menor para el rango S/ 79–149.
-2. **Probar el ajuste en algunas ciudades antes de aplicarlo a todo provincia,** y medir los pedidos de provincia contra el mismo mes del año anterior.
-3. **Asegurar el stock de los productos que sostienen cada categoría.**
-
-**Limitaciones**
-- Los datos son sintéticos; el caso es un ejercicio de práctica.
-- **La relación entre el cambio de envío y la caída es una inferencia, no una prueba.** Coinciden la fecha, la región y el rango, pero confirmarlo requiere un experimento.
+1. **¿Cómo evolucionan las ventas, los pedidos y el ticket promedio cada mes?** · Gerente comercial · *mide el fenómeno*
+2. **¿Cómo crece cada mes frente al mismo mes del año anterior?** · Gerente comercial · *H1*
+3. **¿Subieron las cancelaciones o devoluciones en enero 2026?** · Gerente comercial · *descarta una causa operativa*
+4. **¿Cuánto vendió cada categoría en enero 2026 frente a enero 2025?** · Supervisores · *H2*
+5. **¿Qué productos perdieron más ventas entre enero 2025 y enero 2026?** · Supervisores · *H2*
+6. **¿En qué región y en qué rango de monto de pedido cayó enero 2026?** · Supervisores · *H3*
+7. **¿Qué cambió en esa región entre 2025 y enero 2026?** · Gerente comercial · *busca la causa*
+⏳ *Cada pregunta se desarrolla aquí con su consulta, su resultado y su hallazgo.*
